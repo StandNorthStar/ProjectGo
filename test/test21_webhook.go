@@ -1,0 +1,181 @@
+package main
+
+import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"github.com/spf13/pflag"
+	"io"
+	"os"
+	"text/template"
+	"log"
+	"net/http"
+	"time"
+)
+
+type Annotations struct {
+	Describe string `json:describe`
+	Summary  string `json:summary`
+	Value    string `json:value`
+}
+type Labels struct {
+	Alertname string `json:alertname`
+	Instance  string `json:instance`
+	Job       string `json:job`
+	Severity  string `json:severity`
+}
+
+type Alerts struct {
+	Annotations Annotations `json:annotations`
+	StartsAt   time.Time  	`json:startsAt`
+	EndsAt     time.Time  	`json:endsAt`
+	Status     string     	`json:status`
+	Labels     Labels       `json:labels`
+
+}
+
+type AlertsData struct {
+	Status     string       `json:status`
+	Alerts     []Alerts     `json:alerts`
+}
+
+type Params struct {
+	Url	string
+	Path string
+}
+
+const templateText = `
+{{- if eq .Status "firing" }}
+    <font color=red size=20>告警</font>\n
+    名称： {{ .Labels.Alertname }}\n
+    描述： {{ .Annotations.Describe }}\n
+    地址： {{ .Labels.Instance }}\n
+    告警值： {{ .Annotations.Value }}\n
+    开始时间： {{ (.StartsAt.Add 28800e9).Format "2006-01-02 15:04:05" }}
+{{- else if eq .Status "resolved" }}
+    <font color=#228b22 size=20>恢复</font>\n
+    名称： {{ .Labels.Alertname }}\n
+    描述： {{ .Annotations.Describe }}\n
+    地址： {{ .Labels.Instance }}\n
+    告警值： {{ .Annotations.Value }}\n
+    开始时间： {{ (.StartsAt.Add 28800e9).Format "2006-01-02 15:04:05" }}\n
+    结束时间： {{ (.EndsAt.Add 28800e9).Format "2006-01-02 15:04:05" }}
+{{- end }}`
+
+
+// 发送消息类型
+func MsgMarkdown(msg string) string {
+
+	return fmt.Sprintf(`{
+		"msgtype": "markdown",
+		"markdown": {
+            "content": "%s"
+		}
+	}}`, msg)
+}
+
+func MsgTemplate(templatePath string, m Alerts) (string, error) {
+
+	if len(templatePath) == 0 {
+
+		temp := template.Must(template.New("anyname").Parse(templateText))
+		var content bytes.Buffer
+		contentErr := temp.Execute(&content, m)
+		return content.String(), contentErr
+	}
+
+	// 判断模板文件是否存在
+	_, err := os.Stat(templatePath)
+	if os.IsNotExist(err) {
+		log.Fatalf("File %s Not Exsit", templatePath)
+	}
+
+	temp, err := template.ParseFiles(templatePath)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	var content bytes.Buffer
+	contentErr := temp.Execute(&content, m)
+	return content.String(), contentErr
+
+}
+
+func WeChatSend(url string, data io.Reader) (*http.Response, error) {
+
+	client := &http.Client{}
+	prereq, _err := http.NewRequest("POST", url, data)
+	if _err != nil {
+		log.Println(_err)
+	}
+	prereq.Header.Set("Content-Type", "application/json; charset=UTF-8")
+	response, _err := client.Do(prereq)
+
+	return response, _err
+}
+
+func (p Params) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+
+	var alertdata AlertsData
+	if err:=json.NewDecoder(r.Body).Decode(&alertdata); err!=nil {
+		r.Body.Close()
+		log.Fatal(err)
+	}
+	fmt.Println(p.Url)
+	fmt.Println(p.Path)
+
+	alert_alerts := alertdata.Alerts
+	for _, v := range alert_alerts {
+
+		msg, err := MsgTemplate(p.Path, v)
+		if err != nil {
+			log.Fatal(err)
+		}
+		msgmarkdown := MsgMarkdown(msg)
+
+		DataByte := []byte(msgmarkdown)
+		DataReader := bytes.NewReader(DataByte)
+		req, reqerr := WeChatSend(p.Url, DataReader)
+		if reqerr != nil {
+			log.Fatal(reqerr)
+		}
+		req.Body.Close()
+
+	}
+	log.Println(alertdata.Status, alert_alerts)
+}
+
+
+func main() {
+
+	webhook := pflag.StringP("webhook", "w", "", "enterprise wechat webhook url.")
+	templatePath := pflag.StringP("template", "t", "", "Alert Content Template, if not setting use defaults.")
+	port := pflag.IntP("port","p", 5001, "Prometheus Webhook Listen Port. ")
+	pflag.Parse()
+
+	if len(*webhook) <= 0 {
+		panic("Please Setting Webhook URL")
+	}
+
+	if templatePath != nil {
+		fmt.Println(*templatePath)
+	}
+
+	parms := Params{
+		Url: *webhook,
+		Path: *templatePath,
+	}
+
+	mux := http.NewServeMux()
+	mux.Handle("/alert", parms)
+
+	// 启动
+	s := &http.Server{
+		Addr: fmt.Sprintf(":%s", *port),
+		Handler: mux,
+		ReadTimeout: 10 * time.Second,
+		WriteTimeout: 10 * time.Second,
+	}
+	log.Fatal(s.ListenAndServe())
+}
+

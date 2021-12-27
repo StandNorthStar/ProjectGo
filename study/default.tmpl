@@ -1,0 +1,16 @@
+{{- if eq .Status "firing" }}
+<font color=red size=20>告警</font>\n
+名称： {{ .Labels.Alertname }}\n
+描述： {{ .Annotations.Describe }}\n
+地址： {{ .Labels.Instance }}\n
+告警值： {{ .Annotations.Value }}\n
+开始时间： {{ (.StartsAt.Add 28800e9).Format "2006-01-02 15:04:05" }}
+{{- else if eq .Status "recovery" }}
+<font color=#7cfc00 size=20>恢复</font>\n
+名称： {{ .Labels.Alertname }}\n
+描述： {{ .Annotations.Describe }}\n
+地址： {{ .Labels.Instance }}\n
+告警值： {{ .Annotations.Value }}\n
+开始时间： {{ (.StartsAt.Add 28800e9).Format "2006-01-02 15:04:05" }}\n
+结束时间： {{ (.EndsAt.Add 28800e9).Format "2006-01-02 15:04:05" }}
+{{- end }}
