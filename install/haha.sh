@@ -1,8 +1,8 @@
 #!/bin/bash
 
-curl -XPOST -H "content-type:application/json" http://12.1.216.132:8012/common/loan/v1/login -d '
+curl -XPOST -H "content-type:application/json" http://x.x.xxx.xxx:xxxx/common/loan/v1/login -d '
 {
-  "userName":"2651888",
-  "password":"123456",
+  "userName":"xxxxx",
+  "password":"xxxxx",
   "flag":"loan"
 }'
