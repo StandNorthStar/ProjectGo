@@ -4,12 +4,12 @@ import "fmt"
 
 /*
 channel 通道用于并发goroutine的通信
- */
+*/
 
 func t3(c chan int) {
 	fmt.Println("t1")
 
-	<-c  // goroutine通过"<-c"来等待t3 goroutine中的“完成事件”
+	<-c // goroutine通过"<-c"来等待t3 goroutine中的“完成事件”
 }
 
 func main() {
@@ -19,13 +19,13 @@ func main() {
 	c <- 10
 	c <- 11
 
-	fmt.Println( <- c)
-	fmt.Println( <- c)
+	fmt.Println(<-c)
+	fmt.Println(<-c)
 
 	// 2.
 	c1 := make(chan int)
 	go func() {
-		for i:=1;i<10;i++ {
+		for i := 1; i < 10; i++ {
 			c1 <- i
 
 		}
@@ -50,19 +50,21 @@ func main() {
 
 	c3 <- 1003
 
-
 	// 4.
+	fmt.Println("---t4 start---")
 	c4 := make(chan int)
-	for i:=1;i<10;i++ {
+	for i := 1; i < 10; i++ {
 		go t4(c4, i)
 	}
-
+	fmt.Println("---t4 end---")
 
 }
 
 func t4(c chan int, index int) {
-	r := <- c
-
+	r, ok := <-c
+	if !ok {
+		fmt.Println("T4 channel EMPTY")
+	}
 	//<- c
-	fmt.Println("This T4 worker:", r)
+	fmt.Println("This T4 worker:", r, index)
 }

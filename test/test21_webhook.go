@@ -6,10 +6,11 @@ import (
 	"fmt"
 	"github.com/spf13/pflag"
 	"io"
-	"os"
-	"text/template"
 	"log"
 	"net/http"
+	"os"
+	"strconv"
+	"text/template"
 	"time"
 )
 
@@ -27,21 +28,21 @@ type Labels struct {
 
 type Alerts struct {
 	Annotations Annotations `json:annotations`
-	StartsAt   time.Time  	`json:startsAt`
-	EndsAt     time.Time  	`json:endsAt`
-	Status     string     	`json:status`
-	Labels     Labels       `json:labels`
-
+	StartsAt    time.Time   `json:startsAt`
+	EndsAt      time.Time   `json:endsAt`
+	Status      string      `json:status`
+	Labels      Labels      `json:labels`
 }
 
 type AlertsData struct {
-	Status     string       `json:status`
-	Alerts     []Alerts     `json:alerts`
+	Status string   `json:status`
+	Alerts []Alerts `json:alerts`
 }
 
 type Params struct {
-	Url	string
-	Path string
+	Url   string
+	Path  string
+	Proxy string
 }
 
 const templateText = `
@@ -61,7 +62,6 @@ const templateText = `
     开始时间： {{ (.StartsAt.Add 28800e9).Format "2006-01-02 15:04:05" }}\n
     结束时间： {{ (.EndsAt.Add 28800e9).Format "2006-01-02 15:04:05" }}
 {{- end }}`
-
 
 // 发送消息类型
 func MsgMarkdown(msg string) string {
@@ -97,13 +97,24 @@ func MsgTemplate(templatePath string, m Alerts) (string, error) {
 
 	var content bytes.Buffer
 	contentErr := temp.Execute(&content, m)
+	fmt.Println("result: ", content.String())
 	return content.String(), contentErr
 
 }
 
-func WeChatSend(url string, data io.Reader) (*http.Response, error) {
+func WeChatSend(url string, data io.Reader, https_proxy string) (*http.Response, error) {
 
-	client := &http.Client{}
+	// 如设置代理，添加代理变量
+	if len(https_proxy) != 0 {
+		os.Setenv("https_proxy", https_proxy)
+	}
+
+	client := &http.Client{
+		// 设置http 代理
+		Transport: &http.Transport{
+			Proxy: http.ProxyFromEnvironment,
+		},
+	}
 	prereq, _err := http.NewRequest("POST", url, data)
 	if _err != nil {
 		log.Println(_err)
@@ -117,12 +128,10 @@ func WeChatSend(url string, data io.Reader) (*http.Response, error) {
 func (p Params) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	var alertdata AlertsData
-	if err:=json.NewDecoder(r.Body).Decode(&alertdata); err!=nil {
+	if err := json.NewDecoder(r.Body).Decode(&alertdata); err != nil {
 		r.Body.Close()
 		log.Fatal(err)
 	}
-	fmt.Println(p.Url)
-	fmt.Println(p.Path)
 
 	alert_alerts := alertdata.Alerts
 	for _, v := range alert_alerts {
@@ -135,7 +144,7 @@ func (p Params) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		DataByte := []byte(msgmarkdown)
 		DataReader := bytes.NewReader(DataByte)
-		req, reqerr := WeChatSend(p.Url, DataReader)
+		req, reqerr := WeChatSend(p.Url, DataReader, p.Proxy)
 		if reqerr != nil {
 			log.Fatal(reqerr)
 		}
@@ -145,12 +154,12 @@ func (p Params) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	log.Println(alertdata.Status, alert_alerts)
 }
 
-
 func main() {
 
 	webhook := pflag.StringP("webhook", "w", "", "enterprise wechat webhook url.")
 	templatePath := pflag.StringP("template", "t", "", "Alert Content Template, if not setting use defaults.")
-	port := pflag.IntP("port","p", 5001, "Prometheus Webhook Listen Port. ")
+	port := pflag.IntP("port", "p", 5001, "Prometheus Webhook Listen Port. ")
+	proxy := pflag.String("proxy", "", "Alert Proxy.")
 	pflag.Parse()
 
 	if len(*webhook) <= 0 {
@@ -162,8 +171,9 @@ func main() {
 	}
 
 	parms := Params{
-		Url: *webhook,
-		Path: *templatePath,
+		Url:   *webhook,
+		Path:  *templatePath,
+		Proxy: *proxy,
 	}
 
 	mux := http.NewServeMux()
@@ -171,11 +181,10 @@ func main() {
 
 	// 启动
 	s := &http.Server{
-		Addr: fmt.Sprintf(":%s", *port),
-		Handler: mux,
-		ReadTimeout: 10 * time.Second,
+		Addr:         fmt.Sprintf(":%s", strconv.Itoa(*port)),
+		Handler:      mux,
+		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 10 * time.Second,
 	}
 	log.Fatal(s.ListenAndServe())
 }
-
