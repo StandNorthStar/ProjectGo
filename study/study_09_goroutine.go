@@ -310,4 +310,5 @@ func main() {
 	//1.  一个goroutine循环接收
 	ch8 := make(chan int)
 	go func() { ch8 <- 10 }()
+
 }
