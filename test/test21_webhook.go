@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/spf13/pflag"
 	"io"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -132,9 +133,17 @@ func WeChatSend(url string, data io.Reader, https_proxy string) (*http.Response,
 func (p Params) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	var alertdata AlertsData
+	fmt.Println("------")
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(string(body))
+	fmt.Println("------")
 	if err := json.NewDecoder(r.Body).Decode(&alertdata); err != nil {
 		r.Body.Close()
-		log.Fatal(err)
+		log.Println("request data error: ",err)
+		//log.Fatal(err)
 	}
 
 	alert_alerts := alertdata.Alerts
@@ -142,13 +151,14 @@ func (p Params) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		msg, err := MsgTemplate(p.Path, v)
 		if err != nil {
-			log.Fatal(err)
+			//log.Fatal(err)
+			log.Println("Parsh Template Error:", err)
 		}
 		msgmarkdown := MsgMarkdown(msg)
 
 		DataByte := []byte(msgmarkdown)
 		DataReader := bytes.NewReader(DataByte)
-		// 异常处理
+		// 异常处理 recover
 		defer func() {
 			if err := recover(); err != nil {
 				log.Println(err)
