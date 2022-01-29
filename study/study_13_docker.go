@@ -79,11 +79,11 @@ func main() {
 	 */
 	fmt.Println("\n\n\n")
 	fmt.Println("---5. Image push ---")
-	imageName := "12.0.216.152/public/prometheus:v2.26.0"
+	imageName := "x.x.x.x/public/prometheus:v2.26.0"
 	// 添加认证
 	authConfig := types.AuthConfig{
-		Username: "admin",
-		Password: "Password@123",
+		Username: "xxx",
+		Password: "xxx",
 	}
 	encodeJson, err := json.Marshal(authConfig)
 	if err != nil {
