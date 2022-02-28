@@ -9,7 +9,7 @@ import (
 	"github.com/docker/docker/client"
 	"io/ioutil"
 )
-
+// 参考：https://docs.docker.com/engine/api/sdk/examples/
 
 func main() {
 	ctx := context.Background()
@@ -111,6 +111,10 @@ func main() {
 	}
 	imagePush.Close()
 	fmt.Println(string(r))
+
+	/*
+	示例六、停止容器
+	 */
 
 }
 

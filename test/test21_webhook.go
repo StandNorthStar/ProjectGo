@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"github.com/spf13/pflag"
 	"io"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -15,25 +14,13 @@ import (
 	"time"
 )
 
-type Annotations struct {
-	Describe string `json:describe`
-	Summary  string `json:summary`
-	Value    string `json:value`
-}
-//type Labels struct {
-//	Alertname string `json:alertname`
-//	Instance  string `json:instance`
-//	Job       string `json:job`
-//	Severity  string `json:severity`
-//}
 
 type Alerts struct {
-	Annotations Annotations `json:annotations`
+	Annotations map[string]interface{} `json:annotations`
 	StartsAt    time.Time   `json:startsAt`
 	EndsAt      time.Time   `json:endsAt`
 	Status      string      `json:status`
 	Labels      map[string]interface{}     `json:labels`
-	//Labels      Labels      `json:labels`
 }
 
 type AlertsData struct {
@@ -51,16 +38,16 @@ const templateText = `
 {{- if eq .Status "firing" }}
     <font color=red size=20>告警</font>\n
     名称： {{ .Labels.alertname }}\n
-    描述： {{ .Annotations.Describe }}\n
+    描述： {{ .Annotations.description }}\n
     地址： {{ .Labels.instance }}\n
-    告警值： {{ .Annotations.Value }}\n
+    告警值： {{ .Annotations.value }}\n
     开始时间： {{ (.StartsAt.Add 28800e9).Format "2006-01-02 15:04:05" }}
 {{- else if eq .Status "resolved" }}
     <font color=#228b22 size=20>恢复</font>\n
     名称： {{ .Labels.alertname }}\n
-    描述： {{ .Annotations.Describe }}\n
+    描述： {{ .Annotations.description }}\n
     地址： {{ .Labels.instance }}\n
-    告警值： {{ .Annotations.Value }}\n
+    告警值： {{ .Annotations.value }}\n
     开始时间： {{ (.StartsAt.Add 28800e9).Format "2006-01-02 15:04:05" }}\n
     结束时间： {{ (.EndsAt.Add 28800e9).Format "2006-01-02 15:04:05" }}
 {{- end }}`
@@ -132,19 +119,20 @@ func WeChatSend(url string, data io.Reader, https_proxy string) (*http.Response,
 
 func (p Params) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
+	//body, err := ioutil.ReadAll(r.Body)
+	//if err != nil {
+	//	log.Fatal(err)
+	//}
+	//fmt.Println(string(body))
+
 	var alertdata AlertsData
-	fmt.Println("------")
-	body, err := ioutil.ReadAll(r.Body)
-	if err != nil {
-		log.Fatal(err)
-	}
-	fmt.Println(string(body))
-	fmt.Println("------")
 	if err := json.NewDecoder(r.Body).Decode(&alertdata); err != nil {
-		r.Body.Close()
 		log.Println("request data error: ",err)
 		//log.Fatal(err)
 	}
+	log.Println("--- json parse data start ---")
+	log.Println(alertdata)
+	log.Println("--- json parse data end ---")
 
 	alert_alerts := alertdata.Alerts
 	for _, v := range alert_alerts {
