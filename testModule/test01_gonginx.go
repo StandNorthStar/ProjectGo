@@ -78,7 +78,7 @@ func GetBlockV1(block gonginx.IBlock) *[]NginxDirective {
 1. 便利获取指令
 2. 处理单个指令
 	2.1 查看指令是否包含Block快，如果存在就查询这个块下所有的指令并返回指向这个列表的指针。
-	2.2 
+	2.2
  */
 
 func main() {

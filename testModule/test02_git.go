@@ -15,8 +15,8 @@ https://www.codeleading.com/article/26252532481/
 func main() {
 
 	cpath := "/mnt/d/ProjectGo/testModule/test02"
-	username := "heliyun@ccbscf.com"
-	password := "heliyun123"
+	username := "x@x.x"
+	password := "x"
 
 	gitAuth := &http.BasicAuth{Username: username, Password: password}
 	r := NewRepository(gitAuth, cpath)
@@ -48,7 +48,7 @@ func NewRepository(auth *http.BasicAuth, gitpath string) *git.Repository {
 	branchname := plumbing.NewBranchReferenceName("preprd")
 	rep, err := git.PlainClone(gitpath, false, &git.CloneOptions{
 		RemoteName: "origin",
-		URL: "http://gitlab.inner.com/heidan/nginx.git",
+		URL: "http:////nginx.git",
 		Auth: auth,
 		ReferenceName: branchname,
 		SingleBranch: true,
