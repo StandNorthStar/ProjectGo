@@ -105,15 +105,11 @@ server {
     proxy_buffering off;
     proxy_request_buffering off;
     location / {
-        set $oss_bucket "kubesphere-log";
-        set $oss_auth_id "LTAI5tGqQ28ZWX1Dt2meirrP";
-        set $oss_auth_key "MKIFhnNuPwdww9B6wcL3uGyOTwc3Nj";
-        rewrite_by_lua_file "lua/oss_auth.lua";
     }
     # internal redirect
     location @oss {
         #// endpoint eg: oss.aliyuncs.com
-        proxy_pass http://kubesphere-log.oss-cn-shanghai-finance-1-pub.aliyuncs.com; 
+        proxy_pass http://test.com;
     }
 }
 `
