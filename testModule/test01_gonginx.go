@@ -1,9 +1,12 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"github.com/tufanbarisyildirim/gonginx"
 	"github.com/tufanbarisyildirim/gonginx/parser"
+	"sort"
+	"strings"
 )
 
 // nginx总配置
@@ -42,8 +45,8 @@ func GetDirective(d gonginx.IDirective) NginxDirective {
 	directive.Args = d.GetParameters()
 
 	if d.GetBlock() != nil {
-		m := GetBlockV1(d.GetBlock())
-		directive.Block = m
+		directivelist := GetBlockV1(d.GetBlock())
+		directive.Block = directivelist
 	}
 	return directive
 }
@@ -64,8 +67,8 @@ func GetBlockV1(block gonginx.IBlock) *[]NginxDirective {
 	var ngdirectives []NginxDirective
 	directives := block.GetDirectives()
 	for _, directive := range directives {
-		r := GetDirective(directive)
-		ngdirectives = append(ngdirectives, r)
+		direct := GetDirective(directive)
+		ngdirectives = append(ngdirectives, direct)
 		//fmt.Println("block", r)
 	}
 
@@ -96,17 +99,32 @@ server {
         proxy_pass https://localhost:8080;
     }
 }
+server {
+    listen 8200;
+    proxy_http_version 1.1;
+    proxy_buffering off;
+    proxy_request_buffering off;
+    location / {
+        set $oss_bucket "kubesphere-log";
+        set $oss_auth_id "LTAI5tGqQ28ZWX1Dt2meirrP";
+        set $oss_auth_key "MKIFhnNuPwdww9B6wcL3uGyOTwc3Nj";
+        rewrite_by_lua_file "lua/oss_auth.lua";
+    }
+    # internal redirect
+    location @oss {
+        #// endpoint eg: oss.aliyuncs.com
+        proxy_pass http://kubesphere-log.oss-cn-shanghai-finance-1-pub.aliyuncs.com; 
+    }
+}
 `
 	r := parser.NewStringParser(n)
 	rv1 := r.Parse()
 	fmt.Println(rv1.FilePath)
 	result := GetBlockV1(rv1.Block)
-	//fmt.Println(result)
+	fmt.Println(result)
 
-	for _, v := range *result {
-		fmt.Println(v.Key, v.Args)
-		fmt.Println(v.Block)
-	}
+	fmt.Println("-------------------------")
+	fmt.Println(DumpNginxBlock(result, gonginx.IndentedStyle))
 
 	/*
 	示例一: 读取nginx配置，并格式化输出
@@ -117,6 +135,47 @@ server {
 	//fmt.Println(gonginx.DumpDirective(rv1.Directives[1], gonginx.IndentedStyle))
 	//ib := rv1.GetDirectives()[1].GetBlock()
 	//fmt.Println(gonginx.DumpBlock(ib, gonginx.IndentedStyle))
+
 }
 
+
+func DumpNginxDirective(d NginxDirective, style *gonginx.Style) string {
+	var buf bytes.Buffer
+	if style.SpaceBeforeBlocks && d.Block != nil {
+		buf.WriteString("\n")
+	}
+
+	buf.WriteString(fmt.Sprintf("%s%s", strings.Repeat(" ", style.StartIndent), d.Key))
+	if len(d.Args) > 0 {
+		buf.WriteString(fmt.Sprintf(" %s", strings.Join(d.Args, " ")))
+	}
+	if d.Block == nil {
+		buf.WriteRune(';')
+	} else {
+		buf.WriteString(" {\n")
+		buf.WriteString(DumpNginxBlock(d.Block, style.Iterate()))
+		buf.WriteString(fmt.Sprintf("\n%s}", strings.Repeat(" ", style.StartIndent)))
+	}
+	return buf.String()
+}
+
+func DumpNginxBlock(block *[]NginxDirective, style *gonginx.Style) string {
+	var buf bytes.Buffer
+
+	directives := *block
+
+	if style.SortDirectives {
+		sort.SliceStable(directives, func(i, j int) bool {
+			return directives[i].Key < directives[j].Key
+		})
+	}
+
+	for i, directive := range directives {
+		buf.WriteString(DumpNginxDirective(directive, style))
+		if i != len(directives) - 1 {
+			buf.WriteString("\n")
+		}
+	}
+	return buf.String()
+}
 

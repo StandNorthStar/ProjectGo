@@ -7,6 +7,7 @@ require (
 	github.com/aliyun/aliyun-oss-go-sdk v2.0.4+incompatible
 	github.com/baiyubin/aliyun-sts-go-sdk v0.0.0-20180326062324-cfa1a18b161f // indirect
 	github.com/fatih/color v1.13.0
+	github.com/gin-gonic/gin v1.7.7
 	github.com/go-openapi/strfmt v0.21.1 // indirect
 	github.com/jedib0t/go-pretty v4.3.0+incompatible
 	github.com/mattn/go-runewidth v0.0.13 // indirect
