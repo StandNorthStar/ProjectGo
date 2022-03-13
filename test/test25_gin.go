@@ -48,6 +48,7 @@ func main() {
 
 	/*
 	二、post请求
+	2.1 post formdata参数
 		curl -XPOST http://localhost:9090/p1 -H "Content-Type:application/x-www-form-urlencoded"  -d 'message="sdf"'
 	 */
 	r.POST("/p1", func(c *gin.Context) {
@@ -58,6 +59,26 @@ func main() {
 		})
 	})
 
+	/*
+	2.2 post json参数
+		curl -XPOST http://localhost:9090/p2 -H "Content-Type:application/json"  -d '{"name": "tlh", "age": 19}'
+	 */
+	type User struct {
+		Name 	string  `json:"name"`
+		Age 	int 	`json:"age"`
+	}
+	r.POST("/p2", func(c *gin.Context) {
+		u := User{}
+		err := c.BindJSON(&u)
+		if err != nil {
+			panic("post data error !")
+		}
+		c.JSON(200, gin.H{
+			"name": u.Name,
+			"age": u.Age,
+		})
+
+	})
 	r.Run("0.0.0.0:9090")
 
 }
